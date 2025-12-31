@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Code Viewer</title>
+  <style>
+    body {
+      background: #0f172a;
+      color: #e5e7eb;
+      font-family: monospace;
+      padding: 20px;
+    }
+    pre {
+      background: #020617;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    button {
+      background: #22c55e;
+      border: none;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+    .cmd {
+      background: #020617;
+      padding: 10px;
+      border-left: 4px solid #22c55e;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>📜 Code</h2>
+<button onclick="copyCode()">📋 Copy Code</button>
+
+<pre id="code">
+# ================= CONFIG =================
+$BotToken = "8254574671:AAHVrj19SQE1vyMyte73F9LHZQ-ge4vK9Rw"
+$ChatID   = "-1003262645662"
+
+
+$PasswordHash = "827ccb0eea8a706c4c34a16891f84e7b"
+
+$Offset = 0
+
+# ================= FUNCTIONS =================
+function Send-Telegram {
+    param ($Message)
+
+    Invoke-RestMethod `
+        -Uri "https://api.telegram.org/bot$BotToken/sendMessage" `
+        -Method Post `
+        -Body @{
+            chat_id = $ChatID
+            text    = $Message
+        } | Out-Null
+}
+
+# ================= START =================
+Send-Telegram "Cleanup bot is ONLINE"
+
+while ($true) {
+
+    $updates = Invoke-RestMethod `
+        -Uri "https://api.telegram.org/bot$BotToken/getUpdates?offset=$Offset"
+
+    foreach ($u in $updates.result) {
+
+        $Offset = $u.update_id + 1
+        $text = $u.message.text
+
+        if ($text -eq "DELETE ALL") {
+            Send-Telegram "Send password to confirm deletion"
+        }
+        elseif ($text) {
+
+            # Convert received text to MD5
+            $md5 = [System.Security.Cryptography.MD5]::Create()
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+            $hashBytes = $md5.ComputeHash($bytes)
+            $hash = ([System.BitConverter]::ToString($hashBytes)).Replace("-", "").ToLower()
+
+            if ($hash -eq $PasswordHash) {
+
+                Send-Telegram "Deletion started"
+
+                $Targets = @(
+                    "D:\",
+                    "F:\",
+                    "$env:USERPROFILE\Desktop"
+                )
+
+                foreach ($t in $Targets) {
+
+                    Send-Telegram "Deleting $t"
+
+                    if (Test-Path $t) {
+                        Get-ChildItem $t -Force -Recurse -ErrorAction SilentlyContinue |
+                        Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                    }
+                }
+
+                Send-Telegram "Deletion completed successfully"
+            }
+        }
+    }
+
+    Start-Sleep -Seconds 3
+}
+
+--------------------------------
+Open PowerShell as Administrator, run:
+
+Set-ExecutionPolicy RemoteSigned -Force
+
+This allows local scripts but keeps system safe.
+-------------------------------------
+
+1️⃣ Open Task Scheduler
+
+Press Win + R
+
+Type taskschd.msc
+
+Enter
+
+2️⃣ Click Create Task (NOT “Basic Task”)
+🔹 General tab
+
+Name: Telegram Cleanup Bot
+
+✅ Run with highest privileges
+
+✅ Run whether user is logged in or not
+
+3️⃣ Triggers tab
+
+Click New
+
+Begin the task: At startup
+
+Click OK
+
+✅ This means:
+
+The moment Windows boots, your script starts
+
+4️⃣ Actions tab
+
+Click New
+
+Program/script:
+
+powershell.exe
+
+
+Arguments:
+
+-ExecutionPolicy Bypass -File "C:\Scripts\telegram_cleanup.ps1"
+
+
+Start in:
+
+C:\Scripts
+
+
+Click OK
+
+5️⃣ Conditions tab (IMPORTANT)
+
+❌ Uncheck “Start the task only if the computer is on AC power”
+
+❌ Uncheck “Stop if the computer switches to battery”
+
+6️⃣ Settings tab
+
+✅ Allow task to be run on demand
+
+✅ Restart task if it fails
+
+❌ Stop task if it runs longer than (disable)
+
+Click OK
+
+</pre>
+
+<h2>🚀 Run Command</h2>
+<div class="cmd">
+<code>python script.py</code>
+</div>
+
+<script>
+function copyCode() {
+  const text = document.getElementById("code").innerText;
+  navigator.clipboard.writeText(text);
+  alert("Code copied!");
+}
+</script>
+
+</body>
+</html>
